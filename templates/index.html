@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Degradasyon Simülatörü</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                Degradasyon Simülatörü
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Yan Panel: Parametreler -->
+            <div class="col-md-3">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Simülasyon Parametreleri</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="simulationForm">
+                            <!-- Genel Parametreler -->
+                            <div class="mb-3">
+                                <label for="componentCount" class="form-label">Komponent Sayısı (C):</label>
+                                <input type="number" class="form-control" id="componentCount" value="3" min="1" max="10">
+                            </div>
+                            <div class="mb-3">
+                                <label for="failureThreshold" class="form-label">Varsayılan Arıza Eşiği (K):</label>
+                                <input type="number" class="form-control" id="failureThreshold" value="7" min="1" max="20">
+                            </div>
+                            <div class="mb-3">
+                                <label for="degradationProb" class="form-label">Varsayılan Bozulma Olasılığı (P):</label>
+                                <input type="number" class="form-control" id="degradationProb" value="0.15" min="0.01" max="1" step="0.01">
+                            </div>
+                            <div class="mb-3">
+                                <label for="simulationSteps" class="form-label">Simülasyon Adımları:</label>
+                                <input type="number" class="form-control" id="simulationSteps" value="100" min="10" max="1000" step="10">
+                            </div>
+
+                            <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#componentModal">
+                                <i class="fas fa-cogs me-2"></i>Komponent Parametrelerini Düzenle
+                            </button>
+
+                            <hr>
+
+                            <!-- Maliyet Parametreleri -->
+                            <h6 class="mb-3">Maliyet Parametreleri</h6>
+                            <div class="mb-3">
+                                <label for="maintenanceCost" class="form-label">Bakım Maliyeti:</label>
+                                <input type="number" class="form-control" id="maintenanceCost" value="1000" min="100" max="10000" step="100">
+                            </div>
+                            <div class="mb-3">
+                                <label for="failureCost" class="form-label">Arıza Maliyeti:</label>
+                                <input type="number" class="form-control" id="failureCost" value="5000" min="500" max="50000" step="500">
+                            </div>
+                            <div class="mb-3">
+                                <label for="inspectionCost" class="form-label">Denetim Maliyeti:</label>
+                                <input type="number" class="form-control" id="inspectionCost" value="100" min="10" max="1000" step="10">
+                            </div>
+
+                            <button type="button" id="runSimulation" class="btn btn-success w-100">
+                                <i class="fas fa-play me-2"></i>Simülasyonu Çalıştır
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ana İçerik: Grafikler -->
+            <div class="col-md-9">
+                <!-- Sonuç Kartı -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Simülasyon Sonuçları</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultSummary" class="alert alert-info mb-4">
+                            Henüz bir simülasyon çalıştırılmadı.
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <h6>Toplam Maliyet</h6>
+                                    <div class="metric-value" id="totalCost">N/A</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <h6>Çalışma Yüzdesi</h6>
+                                    <div class="metric-value" id="uptimePercentage">N/A</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <h6>Arızalar Arası Ortalama Süre</h6>
+                                    <div class="metric-value" id="mtbf">N/A</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grafikler -->
+                <ul class="nav nav-tabs" id="visualizationTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="time-series-tab" data-bs-toggle="tab" data-bs-target="#time-series" type="button" role="tab" aria-controls="time-series" aria-selected="true">Zaman Serisi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="component-heatmap-tab" data-bs-toggle="tab" data-bs-target="#component-heatmap" type="button" role="tab" aria-controls="component-heatmap" aria-selected="false">Komponent Isı Haritası</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="cost-analysis-tab" data-bs-toggle="tab" data-bs-target="#cost-analysis" type="button" role="tab" aria-controls="cost-analysis" aria-selected="false">Maliyet Analizi</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="visualizationTabContent">
+                    <div class="tab-pane fade show active" id="time-series" role="tabpanel" aria-labelledby="time-series-tab">
+                        <div class="chart-container">
+                            <div id="componentStatesContainer">
+                                <!-- Komponent durumları için dinamik olarak oluşturulacak canvas'lar -->
+                            </div>
+                            <canvas id="sensorSignalChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="component-heatmap" role="tabpanel" aria-labelledby="component-heatmap-tab">
+                        <div class="chart-container">
+                            <canvas id="heatmapChart"></canvas>
+                            <div class="chart-description mt-3">
+                                Bu ısı haritası, her komponentin zaman içindeki bozulma durumunu gösterir.
+                                <br>Renk skalası: Yeşil (sağlıklı) → Sarı (orta derece bozulma) → Kırmızı (kritik bozulma)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="cost-analysis" role="tabpanel" aria-labelledby="cost-analysis-tab">
+                        <div class="chart-container">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <canvas id="costBreakdownChart"></canvas>
+                                </div>
+                                <div class="col-md-6">
+                                    <canvas id="cumulativeCostChart"></canvas>
+                                </div>
+                            </div>
+                            <div id="costBreakdownText" class="mt-4"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Komponent Parametreleri Modal -->
+    <div class="modal fade" id="componentModal" tabindex="-1" aria-labelledby="componentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="componentModalLabel">Komponent Parametreleri</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="componentTable">
+                            <thead>
+                                <tr>
+                                    <th>Komponent Adı</th>
+                                    <th>Arıza Eşiği (K)</th>
+                                    <th>Bozulma Olasılığı (P)</th>
+                                    <th>Komponent Maliyeti</th>
+                                </tr>
+                            </thead>
+                            <tbody id="componentTableBody">
+                                <!-- JavaScript ile doldurulacak -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                    <button type="button" class="btn btn-primary" id="saveComponentParams">Değişiklikleri Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <!-- jQuery önce yüklenmeli -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js - spesifik versiyon belirtelim -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <!-- Custom JS - en son yükleyelim -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
